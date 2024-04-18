@@ -75,7 +75,7 @@ public class SplashScreenActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        setContentView(R.layout.activity_splashscreen);
         initialise();
 
 
@@ -84,6 +84,12 @@ public class SplashScreenActivity extends AppCompatActivity {
 
 
     private void initialise() {
+        activitySplashscreenBinding = ActivitySplashscreenBinding.inflate(getLayoutInflater());
+        setContentView(activitySplashscreenBinding.getRoot());
+
+
+        database=FirebaseDatabase.getInstance();
+        driverInfoRef=database.getReference(Common.DRIVER_INFO_REFERENCE);
 
         providers = Arrays.asList(
                 new  AuthUI.IdpConfig.PhoneBuilder().build(),
@@ -94,7 +100,7 @@ public class SplashScreenActivity extends AppCompatActivity {
         listener=myFirebaseAuth->{
             FirebaseUser user=myFirebaseAuth.getCurrentUser();
             if (user!=null) {
-                Toast.makeText(this,"Welcome"+user.getUid(),Toast.LENGTH_SHORT).show();
+                checkUserFromFirebase();
 
             }
             else{
@@ -102,6 +108,98 @@ public class SplashScreenActivity extends AppCompatActivity {
             }
         };
     }
+
+    private void checkUserFromFirebase() {
+        driverInfoRef.child(FirebaseAuth.getInstance().getCurrentUser().getUid())
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                        if (dataSnapshot.exists()){
+                            Toast.makeText(SplashScreenActivity.this,"User already Registered",Toast.LENGTH_SHORT).show();
+                        }else{
+                            Toast.makeText(SplashScreenActivity.this,"Goingto Register acount",Toast.LENGTH_SHORT).show();
+
+                            showRegisterLayout();
+
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Toast.makeText(SplashScreenActivity.this,""+error.getMessage(),Toast.LENGTH_SHORT).show();
+
+                    }
+                });
+        }
+
+    private void showRegisterLayout() {
+
+        AlertDialog.Builder builder=new AlertDialog.Builder(this,R.style.DialogTheme);
+        View itemView= LayoutInflater.from(this).inflate(R.layout.layout_register,null);
+
+        TextInputEditText edit_first_name=(TextInputEditText) itemView.findViewById(R.id.first_name);
+        TextInputEditText edit_last_name=(TextInputEditText) itemView.findViewById(R.id.lastname_holder);
+        TextInputEditText edit_phone=(TextInputEditText) itemView.findViewById(R.id.phonenumber);
+
+        ImageButton btn_continue=(ImageButton)itemView.findViewById(R.id.continue_btn);
+
+
+
+        //set data
+//        if (FirebaseAuth.getInstance().getCurrentUser().getPhoneNumber()!=null &&
+//        !TextUtils.isEmpty(FirebaseAuth.getInstance().getCurrentUser().getPhoneNumber()))
+//        edit_phone.setText(FirebaseAuth.getInstance().getCurrentUser().getPhoneNumber());
+
+        if (FirebaseAuth.getInstance().getCurrentUser().getPhoneNumber()!=null && !TextUtils.isEmpty(FirebaseAuth.getInstance().getCurrentUser().getPhoneNumber()));
+        edit_phone.setText(FirebaseAuth.getInstance().getCurrentUser().getPhoneNumber());
+
+        //set view
+        builder.setView(itemView);
+        AlertDialog dialog=builder.create();
+        dialog.show();
+
+        btn_continue.setOnClickListener(v ->  {
+
+            if (TextUtils.isEmpty(edit_first_name.getText().toString())){
+                Toast.makeText(this,"Please enter First name",Toast.LENGTH_SHORT).show();
+                return;
+            }else if (TextUtils.isEmpty(edit_last_name.getText().toString())){
+                Toast.makeText(this,"Please enter Last name",Toast.LENGTH_SHORT).show();
+                return;
+            }else if (TextUtils.isEmpty(edit_phone.getText().toString())){
+                Toast.makeText(this,"Please enter Phone number",Toast.LENGTH_SHORT).show();
+                return;
+            }else{
+                DriverIndoModule model=new DriverIndoModule();
+                model.setFirstName(edit_first_name.getText().toString());
+                model.setLastName(edit_last_name.getText().toString());
+                model.setPhoneNumber(edit_phone.getText().toString());
+                model.setRating(0.0);
+
+
+                driverInfoRef.child(FirebaseAuth.getInstance().getCurrentUser().getUid())
+                        .setValue(model)
+                        .addOnFailureListener(new OnFailureListener() {
+                            @Override
+                            public void onFailure(@NonNull Exception e) {
+                                dialog.dismiss();
+                                Toast.makeText(SplashScreenActivity.this,e.getMessage(),Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .addOnSuccessListener(new OnSuccessListener<Void>() {
+                            @Override
+                            public void onSuccess(Void unused) {
+                                Toast.makeText(SplashScreenActivity.this,"Registered Succesfully!",Toast.LENGTH_SHORT).show();
+                                dialog.dismiss();
+                            }
+                        });
+
+
+            }
+        });
+    }
+
+
 
 
 
@@ -134,7 +232,7 @@ public class SplashScreenActivity extends AppCompatActivity {
     private void delaySplashScreen() {
 
 
-//        activitySplashscreenBinding.progressBar.setVisibility(View.VISIBLE);
+        activitySplashscreenBinding.progressBar.setVisibility(View.VISIBLE);
 
         Completable.timer(3, TimeUnit.SECONDS, AndroidSchedulers.mainThread())
                 .subscribe(() -> {
